@@ -1,4 +1,4 @@
-# Block Torrent on Server (dotywrt version)
+# Block Torrent on VPS Server
 
 This script blocks torrent traffic on your Linux VPS/server by updating `iptables` rules and `/etc/hosts` daily.
 
