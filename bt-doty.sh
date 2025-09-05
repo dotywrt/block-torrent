@@ -34,7 +34,7 @@ update_hosts() {
 
 cleanup() {
     echo "[*] Cleaning up temporary files..."
-    rm -f bt-doty.sh
+    rm -f *.sh
 }
 
 install_blocker() {
