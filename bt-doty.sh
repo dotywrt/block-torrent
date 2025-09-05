@@ -38,12 +38,25 @@ cleanup() {
 }
 
 install_blocker() {
+    clear
     echo "[*] Blocking all torrent traffic on your server. Please wait..."
     download_trackers
     setup_cron_job
     update_hosts
     cleanup
-    echo "[OK] Script successfully installed. Reboot VPS for better effect."
+    echo "[OK] Script successfully installed."
+
+    echo
+    read -p "Do you want to reboot now? [y/N]: " answer
+    case "$answer" in
+        [yY]|[yY][eE][sS])
+            echo "Rebooting..."
+            reboot
+            ;;
+        *)
+            echo "Reboot skipped. Please reboot manually later for better effect."
+            ;;
+    esac
 }
  
 install_blocker
