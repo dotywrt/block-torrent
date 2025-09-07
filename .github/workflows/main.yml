@@ -15,8 +15,8 @@ jobs:
 
       - name: Install required tools
         run: |
-          sudo apt update
-          sudo apt install -y curl grep sed sort
+          apt-get update
+          apt-get install -y curl grep sed
 
       - name: Download and combine host files
         run: |
