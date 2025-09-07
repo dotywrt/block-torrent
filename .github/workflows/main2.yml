@@ -16,39 +16,57 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl grep sed dnsutils
+          sudo apt-get install -y curl
 
       - name: Download raw host files
-        run: |  
+        run: |
           FILES=(
             "https://raw.githubusercontent.com/jerryn70/GoodbyeAds/master/Hosts/GoodbyeAds.txt"
-            "https://raw.githubusercontent.com/jerryn70/GoodbyeAds/master/Extension/GoodbyeAds-YouTube-AdBlock.txt" 
+            "https://raw.githubusercontent.com/jerryn70/GoodbyeAds/master/Extension/GoodbyeAds-YouTube-AdBlock.txt"
             "https://raw.githubusercontent.com/dotywrt/youtube-ads-4-adaway/refs/heads/main/hosts"
             "https://raw.githubusercontent.com/dotywrt/block-torrent/refs/heads/main/Thosts"
           )
 
           > host1.txt
           for url in "${FILES[@]}"; do
-            echo "Downloading $url"
-            curl -s "$url" >> host1.txt || echo "⚠️ Failed $url"
+            echo "🔎 Checking $url ..."
+            if curl -s --head --fail "$url" > /dev/null; then
+              echo "✅ Alive: $url"
+              curl -s "$url" >> host1.txt
+              echo "" >> host1.txt
+            else
+              echo "⚠️ Dead: $url (skipped)"
+            fi
           done
 
-      # MODE A → BERSIHKAN hanya domain valid
-      - name: Extract domains (Host2)
+      - name: Normalize hosts file
         run: |
-          # Keep only domain-like strings
-          grep -oE '([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}' host1.txt \
-            | sort -u > host2.txt
+          awk '
+          # skip kosong & komen
+          /^[[:space:]]*$/ { next }
+          /^#/ { next }
 
-      # MODE B → KEEP SEMUA TERMASUK 404
-      # Uncomment bawah ni kalau nak kekalkan semua line
-      # - name: Extract domains (Host2)
-      #   run: |
-      #     cat host1.txt | sort -u > host2.txt
+          # case 1: kekalkan 127.0.0.1 dan ::1
+          /^(127\.0\.0\.1|::1)[[:space:]]+/ {
+            print $0; next
+          }
+
+          # case 2: sudah ada 0.0.0.0 domain
+          /^0\.0\.0\.0[[:space:]]+([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ {
+            print $0; next
+          }
+
+          # case 3: hanya domain valid tanpa 0.0.0.0
+          /^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ {
+            print "0.0.0.0 "$0; next
+          }
+
+          # lain-lain buang
+          ' host1.txt | sort -u > host2.txt
 
       - name: Generate NetGuard hosts file
         run: |
-          awk '{print "0.0.0.0 "$0}' host2.txt > netguard-host.txt
+          cp host2.txt netguard-host.txt
 
       - name: Split large files (>100MB)
         run: |
@@ -57,7 +75,7 @@ jobs:
             if [ -f "$file" ]; then
               size=$(du -m "$file" | cut -f1)
               if [ "$size" -gt 100 ]; then
-                echo "Splitting $file (size ${size}MB)..."
+                echo "📂 Splitting $file (size ${size}MB)..."
                 split -b 95M "$file" "${file}."
                 rm "$file"
               fi
@@ -74,5 +92,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add netguard-host*
-          git commit -m "Update host files" || echo "No changes to commit"
+          git commit -m "🔄 Update host files" || echo "No changes to commit"
           git push
