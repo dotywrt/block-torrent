@@ -1,9 +1,9 @@
 name: Update Hosts
 
 on:
-  workflow_dispatch:  # Can be triggered manually
+  workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *' # Optional: daily at 00:00 UTC
+    - cron: '0 0 * * *' # daily at 00:00 UTC
 
 jobs:
   combine_hosts:
@@ -15,8 +15,8 @@ jobs:
 
       - name: Install required tools
         run: |
-          sudo apt update
-          sudo apt install -y curl grep sed
+          sudo apt-get update
+          sudo apt-get install -y curl grep sed coreutils
 
       - name: Download and combine host files
         run: |
@@ -41,11 +41,13 @@ jobs:
           sed -i '/^\s*$/d' combined_hosts.txt
           sed -i '/^#/d' combined_hosts.txt
 
-          # Remove invalid lines (must contain at least one dot, simple check)
-          sed -i '/[^a-zA-Z0-9.-]/d' combined_hosts.txt
+          # Remove invalid lines (must contain valid domain format: letters, digits, dots, hyphens)
+          grep -E '^[0-9\.]+\s+[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' combined_hosts.txt > combined_hosts.tmp
+          mv combined_hosts.tmp combined_hosts.txt
 
           # Ensure 0.0.0.0 prefix if not already
-          sed -i 's/^\(?!0\.0\.0\.0\)/0.0.0.0 /' combined_hosts.txt
+          awk '{if($1 != "0.0.0.0") print "0.0.0.0 "$2; else print $0}' combined_hosts.txt > combined_hosts.tmp
+          mv combined_hosts.tmp combined_hosts.txt
 
           # Remove duplicates
           sort -u combined_hosts.txt -o combined_hosts.txt
