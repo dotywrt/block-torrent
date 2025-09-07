@@ -3,7 +3,7 @@ name: Update Hosts
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *' # daily 00:00 UTC
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
 
 jobs:
   combine_hosts:
@@ -16,9 +16,9 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl grep sed coreutils
+          sudo apt-get install -y curl grep sed dnsutils
 
-      - name: Download and combine host files (host1)
+      - name: Download raw host files
         run: |
           FILES=(
             "https://raw.githubusercontent.com/REIJI007/Adblock-Rule-Collection/main/ADBLOCK_RULE_COLLECTION_DOMAIN.txt"
@@ -29,47 +29,57 @@ jobs:
 
           > host1.txt
           for url in "${FILES[@]}"; do
-            echo "Checking $url..."
-            if curl -s --head --fail "$url" | grep "200 OK" > /dev/null; then
-              echo "  ✅ Alive, downloading..."
-              curl -s "$url" >> host1.txt
-            else
-              echo "  ❌ Dead, skipping..."
-            fi
+            echo "Downloading $url"
+            curl -s "$url" >> host1.txt || echo "⚠️ Failed $url"
           done
 
-      - name: Create host2 (only clean domains)
+      - name: Extract domains (Host2)
         run: |
-          # Remove comments & empty lines
-          sed -i '/^\s*$/d;/^#/d' host1.txt
+          # Remove comments and IPs, keep only domain-like entries
+          grep -oE '([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}' host1.txt \
+            | sort -u > host2.txt
 
-          # Extract only valid hostnames
-          grep -oE '([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}' host1.txt | sort -u > host2.txt
+      - name: Validate domains
+        run: |
+          echo "Checking DNS resolution..."
+          > valid_hosts.txt
+          while read -r domain; do
+            if host "$domain" > /dev/null 2>&1; then
+              echo "$domain" >> valid_hosts.txt
+            else
+              echo "Dead: $domain"
+            fi
+          done < host2.txt
 
-      - name: Create NetGuard format
+          mv valid_hosts.txt host2.txt
+
+      - name: Generate NetGuard hosts file
         run: |
           awk '{print "0.0.0.0 "$0}' host2.txt > netguard-host.txt
 
-      - name: Split large files if needed
+      - name: Split large files (>100MB)
         run: |
-          MAXSIZE=$((100*1024*1024)) # 100 MB
-          for f in host1.txt host2.txt netguard-host.txt; do
-            if [ -f "$f" ] && [ $(stat -c%s "$f") -gt $MAXSIZE ]; then
-              echo "Splitting $f because it is larger than 100MB..."
-              split -b ${MAXSIZE} -d -a 2 "$f" "${f%.txt}-part"
-              rm "$f"
-              for part in ${f%.txt}-part*; do
-                mv "$part" "$part.txt"
-              done
+          split_if_needed() {
+            file=$1
+            if [ -f "$file" ]; then
+              size=$(du -m "$file" | cut -f1)
+              if [ "$size" -gt 100 ]; then
+                echo "Splitting $file (size ${size}MB)..."
+                split -b 95M "$file" "${file}."
+                rm "$file"
+              fi
             fi
-          done
+          }
+          split_if_needed host1.txt
+          split_if_needed host2.txt
+          split_if_needed netguard-host.txt
 
-      - name: Commit and push
+      - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add host1*.txt host2*.txt netguard-host*.txt
+          git add host1* host2* netguard-host*
           git commit -m "Update host files" || echo "No changes to commit"
           git push
