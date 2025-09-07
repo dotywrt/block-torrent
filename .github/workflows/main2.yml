@@ -56,13 +56,25 @@ jobs:
           /^#/ { next }               # skip komen
 
           # kekalkan localhost
-          /^(127\.0\.0\.1|::1)[[:space:]]+/ { print $0; next }
+          /^(127\.0\.0\.1|::1)[[:space:]]+/ {
+            domain=$2
+            if (!seen[domain]++) print $0
+            next
+          }
 
           # sudah ada 0.0.0.0 domain valid
-          /^0\.0\.0\.0[[:space:]]+([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ { print $0; next }
+          /^0\.0\.0\.0[[:space:]]+([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ {
+            domain=$2
+            if (!seen[domain]++) print $0
+            next
+          }
 
           # hanya domain valid → tambah 0.0.0.0
-          /^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ { print "0.0.0.0 "$0; next }
+          /^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ {
+            domain=$0
+            if (!seen[domain]++) print "0.0.0.0 "domain
+            next
+          }
 
           ' host1.txt | sort -u > host2.txt
 
