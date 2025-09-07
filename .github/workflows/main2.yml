@@ -19,8 +19,7 @@ jobs:
           sudo apt-get install -y curl grep sed dnsutils
 
       - name: Download raw host files
-        run: | 
-YT_ADBLOCK=""
+        run: |  
           FILES=(
             "https://raw.githubusercontent.com/jerryn70/GoodbyeAds/master/Hosts/GoodbyeAds.txt"
             "https://raw.githubusercontent.com/jerryn70/GoodbyeAds/master/Extension/GoodbyeAds-YouTube-AdBlock.txt" 
