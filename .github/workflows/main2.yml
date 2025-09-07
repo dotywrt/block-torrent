@@ -28,6 +28,13 @@ jobs:
             "https://raw.githubusercontent.com/dotywrt/youtube-ads-4-adaway/refs/heads/main/hosts"
             "https://raw.githubusercontent.com/dotywrt/block-torrent/refs/heads/main/Thosts"
             "https://raw.githubusercontent.com/bongochong/CombinedPrivacyBlockLists/master/NoFormatting/cpbl-ctld.txt"
+            "https://raw.githubusercontent.com/mssvpn/hosts/main/StevenBlack_Active.txt"
+            "https://raw.githubusercontent.com/mssvpn/hosts/main/NoCoin_Active.txt"
+            "https://raw.githubusercontent.com/mssvpn/hosts/main/D3Host_Active.txt"
+            "https://raw.githubusercontent.com/mssvpn/hosts/main/BlocklistProjectTorrent_Active.txt"
+            "https://raw.githubusercontent.com/mssvpn/hosts/main/BlocklistProjectTracker_Active.txt"
+            "https://raw.githubusercontent.com/mssvpn/hosts/main/BlocklistProjectRedirect_Active.txt"
+            "https://raw.githubusercontent.com/mssvpn/hosts/main/BlocklistProjectGambling_Active.txt"
           )
 
           > host1.txt
