@@ -1,4 +1,4 @@
-name: Update Hosts
+name: Update NetGuard Hosts
 
 on:
   workflow_dispatch:
@@ -27,7 +27,7 @@ jobs:
             "https://raw.githubusercontent.com/dotywrt/block-torrent/refs/heads/main/Thosts"
           )
 
-          COMBINED="combined_hosts.txt"
+          COMBINED="combined_hosts.tmp"
           > "$COMBINED"
 
           for url in "${FILES[@]}"; do
@@ -35,29 +35,31 @@ jobs:
             curl -s "$url" >> "$COMBINED"
           done
 
-      - name: Clean combined file
+      - name: Clean and format hosts
         run: |
-          # Remove empty lines and comments
-          sed -i '/^\s*$/d' combined_hosts.txt
-          sed -i '/^#/d' combined_hosts.txt
+          CLEANED="netguard.txt"
 
-          # Remove invalid lines (must contain valid domain format: letters, digits, dots, hyphens)
-          grep -E '^[0-9\.]+\s+[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' combined_hosts.txt > combined_hosts.tmp
-          mv combined_hosts.tmp combined_hosts.txt
+          # Remove 0.0.0.0 prefix and whitespace
+          sed -E 's/^\s*0\.0\.0\.0\s+//g' combined_hosts.tmp > hosts_only.tmp
 
-          # Ensure 0.0.0.0 prefix if not already
-          awk '{if($1 != "0.0.0.0") print "0.0.0.0 "$2; else print $0}' combined_hosts.txt > combined_hosts.tmp
-          mv combined_hosts.tmp combined_hosts.txt
+          # Remove empty lines, comments, and invalid domain names
+          grep -E '^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' hosts_only.tmp > hosts_valid.tmp
+
+          # Prepend 0.0.0.0 to each line
+          awk '{print "0.0.0.0 "$1}' hosts_valid.tmp > "$CLEANED"
 
           # Remove duplicates
-          sort -u combined_hosts.txt -o combined_hosts.txt
+          sort -u "$CLEANED" -o "$CLEANED"
+
+          # Optional: preview first 10 lines
+          head -n 10 "$CLEANED"
 
       - name: Commit and push changes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add combined_hosts.txt
-          git commit -m "Update combined hosts list" || echo "No changes to commit"
+          git config user.name "dotywrt"
+          git config user.email "dotywrt@gmail.com"
+          git add netguard.txt
+          git commit -m "Update NetGuard hosts list" || echo "No changes to commit"
           git push
