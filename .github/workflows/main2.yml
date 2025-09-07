@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # penting untuk bisa pull/rebase
 
       - name: Install tools
         run: |
@@ -25,6 +27,7 @@ jobs:
             "https://raw.githubusercontent.com/jerryn70/GoodbyeAds/master/Extension/GoodbyeAds-YouTube-AdBlock.txt"
             "https://raw.githubusercontent.com/dotywrt/youtube-ads-4-adaway/refs/heads/main/hosts"
             "https://raw.githubusercontent.com/dotywrt/block-torrent/refs/heads/main/Thosts"
+            "https://raw.githubusercontent.com/bongochong/CombinedPrivacyBlockLists/master/NoFormatting/cpbl-ctld.txt"
           )
 
           > host1.txt
@@ -42,31 +45,22 @@ jobs:
       - name: Normalize hosts file
         run: |
           awk '
-          # skip kosong & komen
-          /^[[:space:]]*$/ { next }
-          /^#/ { next }
+          /^[[:space:]]*$/ { next }   # skip kosong
+          /^#/ { next }               # skip komen
 
-          # case 1: kekalkan 127.0.0.1 dan ::1
-          /^(127\.0\.0\.1|::1)[[:space:]]+/ {
-            print $0; next
-          }
+          # kekalkan localhost
+          /^(127\.0\.0\.1|::1)[[:space:]]+/ { print $0; next }
 
-          # case 2: sudah ada 0.0.0.0 domain
-          /^0\.0\.0\.0[[:space:]]+([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ {
-            print $0; next
-          }
+          # sudah ada 0.0.0.0 domain valid
+          /^0\.0\.0\.0[[:space:]]+([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ { print $0; next }
 
-          # case 3: hanya domain valid tanpa 0.0.0.0
-          /^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ {
-            print "0.0.0.0 "$0; next
-          }
+          # hanya domain valid → tambah 0.0.0.0
+          /^([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/ { print "0.0.0.0 "$0; next }
 
-          # lain-lain buang
           ' host1.txt | sort -u > host2.txt
 
       - name: Generate NetGuard hosts file
-        run: |
-          cp host2.txt netguard-host.txt
+        run: cp host2.txt netguard-host.txt
 
       - name: Split large files (>100MB)
         run: |
@@ -91,6 +85,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add netguard-host*
+          git add host1* host2* netguard-host*
           git commit -m "🔄 Update host files" || echo "No changes to commit"
-          git push
+          git pull --rebase origin main
+          git push origin main
