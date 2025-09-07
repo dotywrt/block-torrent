@@ -1,24 +1,19 @@
-name: Build NetGuard Hosts 2
+name: Build Hosts
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *' # daily at 00:00 UTC
+    - cron: "0 0 * * *" # run daily at 00:00 UTC
 
 jobs:
-  build_hosts:
+  build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Install required tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y curl grep sed coreutils awk
-
-      - name: Download and combine raw hosts into host1.txt
+      - name: Download and combine into host1.txt
         run: |
           FILES=(
             "https://raw.githubusercontent.com/REIJI007/Adblock-Rule-Collection/main/ADBLOCK_RULE_COLLECTION_DOMAIN.txt"
@@ -27,37 +22,35 @@ jobs:
             "https://raw.githubusercontent.com/dotywrt/block-torrent/refs/heads/main/Thosts"
           )
 
-          HOST1="host1.txt"
-          > "$HOST1"
-
+          > host1.txt
           for url in "${FILES[@]}"; do
             echo "Downloading $url..."
-            curl -s "$url" >> "$HOST1"
+            curl -s "$url" >> host1.txt
+            echo "" >> host1.txt
           done
 
-      - name: Extract only domains into host2.txt
+      - name: Create host2.txt (domains only, no duplicates)
         run: |
-          HOST2="host2.txt"
-          # Remove any 0.0.0.0 or :: prefixes, whitespace, and comments
-          sed -E 's/^\s*(0\.0\.0\.0|::)\s+//g' host1.txt | sed '/^#/d' | sed '/^\s*$/d' > temp_domains.txt
+          # remove comments, whitespace, and leading 0.0.0.0 / :: if present
+          sed -E 's/^\s*(0\.0\.0\.0|::)\s+//g' host1.txt | \
+          sed '/^#/d' | sed '/^\s*$/d' > temp.txt
 
-          # Keep only valid domain names (simple regex)
-          grep -E '^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' temp_domains.txt | sort -u > "$HOST2"
+          # keep only valid domain-like entries and deduplicate
+          grep -E '^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$' temp.txt | sort -u > host2.txt
 
-          rm -f temp_domains.txt
+          rm -f temp.txt
 
-      - name: Build netguard-host.txt
+      - name: Create netguard-host.txt (prepend 0.0.0.0)
         run: |
-          NETGUARD="netguard-host.txt"
-          awk '{print "0.0.0.0 "$1}' host2.txt > "$NETGUARD"
-          sort -u "$NETGUARD" -o "$NETGUARD"
+          awk '{print "0.0.0.0 "$1}' host2.txt > netguard-host.txt
+          sort -u netguard-host.txt -o netguard-host.txt
 
-      - name: Commit and push all files
+      - name: Commit and push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add host1.txt host2.txt netguard-host.txt
-          git commit -m "Update NetGuard hosts files" || echo "No changes to commit"
+          git commit -m "Update host files" || echo "No changes to commit"
           git push
